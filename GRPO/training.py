@@ -6,6 +6,10 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B")
 model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-1.5B", dtype=torch.bfloat16).to("cuda")
+ref_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-1.5B", torch_dtype=torch.bfloat16).to("cuda")
+ref_model.eval()
+for param in ref_model.parameters():
+    param.requires_grad = False
 def extract_code(text):
     # try markdown code block first
     match = re.search(r'```python\n(.*?)```', text, re.DOTALL)
@@ -59,9 +63,18 @@ for epoch in range(num_epochs):
             logits = forward_pass.logits
             logits = logits[:, :-1, :]        # drop last logit
             input_ids = outputs[i:i+1][:, 1:] # drop first token
-            per_token_losses = get_per_token_logps(logits, input_ids)
-            per_token_losses = per_token_losses * -1 * (rewards[i] - average)
-            per_token_losses = per_token_losses[:, prompt_length-1:]
+            per_token_logps = get_per_token_logps(logits, input_ids)
+            per_token_logps = per_token_logps[:, prompt_length-1:]
+            per_token_losses = per_token_logps * -1 * (rewards[i] - average)
+            
+            with torch.no_grad():
+                ref_logits = ref_model(outputs[i:i+ 1]).logits[:, :-1, :]
+                ref_per_token_logps = get_per_token_logps(ref_logits, input_ids)
+                ref_per_token_logps = ref_per_token_logps[:, prompt_length-1:]
+
+            per_token_kl = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+            beta = 0.04
+            per_token_losses = per_token_losses - beta * per_token_kl
             losses.append((per_token_losses.sum()))
 
 
