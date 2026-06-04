@@ -32,6 +32,9 @@ n = 50
 learning_rate = 1e-5
 optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)#training loop
 all_epoch_rewards = []
+clip_param = 0.2
+old_logps = []
+old_logps_per_sequence = []
 for epoch in range(num_epochs):
     epoch_rewards = []
     for problem in problems:
@@ -65,7 +68,14 @@ for epoch in range(num_epochs):
             input_ids = outputs[i:i+1][:, 1:] # drop first token
             per_token_logps = get_per_token_logps(logits, input_ids)
             per_token_logps = per_token_logps[:, prompt_length-1:]
-            per_token_losses = per_token_logps * -1 * (rewards[i] - average)
+            old_logps_per_sequence.append(per_token_logps.detach())
+           # replace per_token_losses computation with:
+            if len(old_logps) > i:  # after first epoch
+                ratio = torch.exp(per_token_logps - old_logps[i])
+                clipped_ratio = torch.clamp(ratio, 1 - clip_param, 1 + clip_param)
+                per_token_losses = -torch.min(ratio * (rewards[i] - average), clipped_ratio * (rewards[i] - average))
+            else:
+                per_token_losses = per_token_logps * -1 * (rewards[i] - average)
             
             with torch.no_grad():
                 ref_logits = ref_model(outputs[i:i+ 1]).logits[:, :-1, :]
@@ -81,6 +91,8 @@ for epoch in range(num_epochs):
         # print(f"problem: {problem['prompt'][:30]}... rewards: {rewards.tolist()}, loss: {sum(losses).item():.4f}")
         optimizer.zero_grad()
         sum(losses).backward()
+        old_logps = old_logps_per_sequence
+        old_logps_per_sequence = []    
         optimizer.step()
         epoch_rewards.extend(rewards.tolist())
     print(f"epoch {epoch}, avg reward: {sum(epoch_rewards)/len(epoch_rewards):.3f}")
