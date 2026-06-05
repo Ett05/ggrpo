@@ -56,41 +56,43 @@ for epoch in range(num_epochs):
         test_cases = [[answers[i], problem["test"]] for i in range(len(answers))]
 
         rewards = reward_function(test_cases)
-        rewards = torch.tensor(rewards, dtype=torch.float32)
+        rewards = torch.tensor(rewards, dtype=torch.float32, device="cuda")
         average = torch.mean(rewards)
+        advantages = rewards - average
         #loss loop
         losses = []
         prompt_length = inputs["input_ids"].shape[1]
-        for i in range(num_return_sequences):
-            forward_pass = model(outputs[i:i+1])
-            logits = forward_pass.logits
-            logits = logits[:, :-1, :]        # drop last logit
-            input_ids = outputs[i:i+1][:, 1:] # drop first token
-            per_token_logps = get_per_token_logps(logits, input_ids)
-            per_token_logps = per_token_logps[:, prompt_length-1:]
-            old_logps_per_sequence.append(per_token_logps.detach())
-           # replace per_token_losses computation with:
-            if len(old_logps) > i:  # after first epoch
-                ratio = torch.exp(per_token_logps - old_logps[i])
-                clipped_ratio = torch.clamp(ratio, 1 - clip_param, 1 + clip_param)
-                per_token_losses = -torch.min(ratio * (rewards[i] - average), clipped_ratio * (rewards[i] - average))
-            else:
-                per_token_losses = per_token_logps * -1 * (rewards[i] - average)
-            
-            with torch.no_grad():
-                ref_logits = ref_model(outputs[i:i+ 1]).logits[:, :-1, :]
-                ref_per_token_logps = get_per_token_logps(ref_logits, input_ids)
-                ref_per_token_logps = ref_per_token_logps[:, prompt_length-1:]
+        forward_pass = model(outputs)
+        logits = forward_pass.logits[:, :-1, :]
+        input_ids = outputs[:, 1:]
+        per_token_logps = get_per_token_logps(logits, input_ids)
+        per_token_logps = per_token_logps[:, prompt_length-1:]
+        old_logps_per_sequence.append(per_token_logps.detach())
+        # if len(old_logps) > i:  # after first epoch
+        #     ratio = torch.exp(per_token_logps - old_logps[i])
+        #     clipped_ratio = torch.clamp(ratio, 1 - clip_param, 1 + clip_param)
+        #     per_token_losses = -torch.min(ratio * (rewards[i] - average), clipped_ratio * (rewards[i] - average))
+        # else:
+        #     per_token_losses = per_token_logps * -1 * (rewards[i] - average)
 
-            per_token_kl = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
-            beta = 0.04
-            per_token_losses = per_token_losses - beta * per_token_kl
-            losses.append((per_token_losses.sum()))
+        with torch.no_grad():
+            ref_logits = ref_model(outputs).logits[:, :-1, :]
+            ref_per_token_logps = get_per_token_logps(ref_logits, input_ids)
+            ref_per_token_logps = ref_per_token_logps[:, prompt_length-1:]
+        
+        per_token_losses = -per_token_logps * advantages.unsqueeze(1)
+
+
+        per_token_kl = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+        beta = 0.04
+        # per_token_losses = per_token_losses - beta * per_token_kl
+        # losses.append((per_token_losses.sum()))
+        total_loss = (per_token_losses + beta * per_token_kl).mean()
 
 
         # print(f"problem: {problem['prompt'][:30]}... rewards: {rewards.tolist()}, loss: {sum(losses).item():.4f}")
         optimizer.zero_grad()
-        sum(losses).backward()
+        total_loss.backward()
         old_logps = old_logps_per_sequence
         old_logps_per_sequence = []    
         optimizer.step()
