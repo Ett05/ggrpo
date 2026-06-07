@@ -58,7 +58,9 @@ for epoch in range(num_epochs):
         rewards = reward_function(test_cases)
         rewards = torch.tensor(rewards, dtype=torch.float32, device="cuda")
         average = torch.mean(rewards)
-        advantages = rewards - average
+        std = torch.std(rewards)
+        advantages = (rewards - average) / (std + 1e-8)
+
         #loss loop
         losses = []
         prompt_length = inputs["input_ids"].shape[1]
