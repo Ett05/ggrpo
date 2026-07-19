@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Triton compiler cache
+.triton/
+
+# macOS metadata
+.DS_Store
