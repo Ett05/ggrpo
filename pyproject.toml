@@ -9,5 +9,5 @@ dependencies = [
     "matplotlib>=3.10.8",
     "torch>=2.11.0",
     "transformers>=5.8.1",
-    "triton>=3.6.0",
+    "triton>=3.0.0; sys_platform == 'linux'",
 ]

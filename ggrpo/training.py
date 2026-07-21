@@ -20,13 +20,7 @@ def extract_code(text):
     if match:
         return match.group(1).strip()
     return ""
-def get_per_token_logps(logits, input_ids):
-    per_token_logps = []
-    for logits_row, input_ids_row in zip(logits, input_ids):
-        log_probs = logits_row.log_softmax(dim=-1)
-        token_log_prob = torch.gather(log_probs, dim=1, index=input_ids_row.unsqueeze(1)).squeeze(1)
-        per_token_logps.append(token_log_prob)
-    return torch.stack(per_token_logps)
+from ggrpo.kernels import get_per_token_logps
 num_epochs = 50
 n = 50
 learning_rate = 1e-5
