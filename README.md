@@ -61,18 +61,47 @@ This project uses `uv` for lightning-fast python package and environment managem
 
 ## Quickstart
 
+### 1. High-Level GRPO Fine-tuning (`ggrpo.train`)
+
+Fine-tune any causal LLM using GRPO in a single function call, powered by Triton memory kernels under the hood:
+
+```python
+import ggrpo
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from ggrpo.dataset import problems
+from ggrpo.reward import reward_function
+
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-1.5B", torch_dtype="bfloat16").to("cuda")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B")
+
+# Fine-tune using ggrpo
+history = ggrpo.train(
+    model=model,
+    tokenizer=tokenizer,
+    dataset=problems,
+    reward_fn=reward_function,
+    group_size=4,
+    num_epochs=10,
+    lr=1e-5
+)
+
+# Plot rewards and loss curves
+history.plot(save_path="rewards.png")
+```
+
+### 2. Low-Level Fused Logps Kernel (`ggrpo.get_per_token_logps`)
+
+Use the low-level fused Triton kernel directly in your custom PyTorch training loops:
+
 ```python
 import torch
 import ggrpo
 
-# Fused Triton get_per_token_logps (Forward & Backward supported)
 logits = torch.randn(4, 1024, 32002, device="cuda", requires_grad=True)
 input_ids = torch.randint(0, 32002, (4, 1024), device="cuda")
 
-# Memory-efficient log-probability calculation
+# Fused Triton forward & backward pass (zero VRAM logits materialization)
 logps = ggrpo.get_per_token_logps(logits, input_ids)
-
-# Loss calculation and backpropagation
 loss = logps.sum()
 loss.backward()
 ```
