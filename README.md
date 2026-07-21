@@ -1,4 +1,4 @@
-# ggrpo (In Progress)
+# ggrpo
 
 A high-performance, from-scratch implementation of **Group Relative Policy Optimization (GRPO)** in PyTorch, featuring custom fused Triton kernels for memory-efficient training. 
 
@@ -24,11 +24,15 @@ ggrpo/
 ├── README.md              # Project documentation
 ├── experiments.ipynb      # Experimental notebooks
 └── ggrpo/                 # Main package directory
+    ├── __init__.py        # Primary package exports (get_per_token_logps, GRPOHistory)
+    ├── history.py         # Metrics tracker and plotting utilities
     ├── dataset.py         # Coding problems, test cases, and prompt formatting
     ├── reward.py          # Sandboxed Python execution environment for evaluation
     ├── training.py        # GRPO training loop
     └── kernels/
-        └── test_kernel.py # Fused Triton forward/backward kernels & verification suite
+        ├── __init__.py    # Kernel module exports
+        ├── fused_logps.py # Fused Triton forward & backward kernels + autograd Function
+        └── test_kernel.py # Fused Triton verification & benchmark suite
 ```
 
 ---
@@ -39,7 +43,7 @@ This project uses `uv` for lightning-fast python package and environment managem
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/ggrpo.git
+   git clone https://github.com/Ett05/ggrpo.git
    cd ggrpo
    ```
 
@@ -47,6 +51,31 @@ This project uses `uv` for lightning-fast python package and environment managem
    ```bash
    uv sync
    ```
+
+3. **Install the package locally in editable mode**:
+   ```bash
+   uv pip install -e .
+   ```
+
+---
+
+## Quickstart
+
+```python
+import torch
+import ggrpo
+
+# Fused Triton get_per_token_logps (Forward & Backward supported)
+logits = torch.randn(4, 1024, 32002, device="cuda", requires_grad=True)
+input_ids = torch.randint(0, 32002, (4, 1024), device="cuda")
+
+# Memory-efficient log-probability calculation
+logps = ggrpo.get_per_token_logps(logits, input_ids)
+
+# Loss calculation and backpropagation
+loss = logps.sum()
+loss.backward()
+```
 
 ---
 
@@ -62,14 +91,3 @@ This runs:
 1. **Mathematical Validation**: Runs `torch.autograd.gradcheck` to compare the analytical gradients of the Triton backward pass against numerical gradients.
 2. **Correctness Benchmarking**: Asserts that both Triton outputs and gradients match PyTorch eager values (tolerance $10^{-5}$).
 3. **Execution Speed**: Compares and prints the speedup factor of the Triton kernel over PyTorch.
-
-<!--
-{
-  "portfolio": true,
-  "name": "ggrpo",
-  "innieName": "MDR Fused Causal Optimizer",
-  "description": "High-performance PyTorch GRPO implementation featuring custom fused Triton memory kernels.",
-  "innieDescription": "Fused token-advantage optimization pipeline running custom Triton memory recomputation kernels.",
-  "techStack": ["PyTorch", "Triton", "CUDA", "Python", "Docker"]
-}
--->
