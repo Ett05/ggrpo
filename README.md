@@ -1,4 +1,4 @@
-# ggrpo
+# ggrpo (In Progress)
 
 A high-performance, from-scratch implementation of **Group Relative Policy Optimization (GRPO)** in PyTorch, featuring custom fused Triton kernels for memory-efficient training. 
 
@@ -120,3 +120,14 @@ This runs:
 1. **Mathematical Validation**: Runs `torch.autograd.gradcheck` to compare the analytical gradients of the Triton backward pass against numerical gradients.
 2. **Correctness Benchmarking**: Asserts that both Triton outputs and gradients match PyTorch eager values (tolerance $10^{-5}$).
 3. **Execution Speed**: Compares and prints the speedup factor of the Triton kernel over PyTorch.
+
+<!--
+{
+  "portfolio": true,
+  "name": "ggrpo",
+  "innieName": "MDR Fused Causal Optimizer",
+  "description": "High-performance PyTorch library for Group Relative Policy Optimization (GRPO) featuring custom fused Triton kernels with online Softmax tiling and activation recomputation.",
+  "innieDescription": "Fused token-advantage optimization pipeline running custom Triton memory recomputation kernels.",
+  "techStack": ["PyTorch", "Triton", "CUDA", "Python", "Transformers", "Docker"]
+}
+-->
