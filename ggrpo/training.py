@@ -59,8 +59,8 @@ for epoch in range(num_epochs):
         losses = []
         prompt_length = inputs["input_ids"].shape[1]
         forward_pass = model(outputs)
-        logits = forward_pass.logits[:, :-1, :]
-        input_ids = outputs[:, 1:]
+        logits = forward_pass.logits[:, :-1, :].contiguous()
+        input_ids = outputs[:, 1:].contiguous()
         per_token_logps = get_per_token_logps(logits, input_ids)
         per_token_logps = per_token_logps[:, prompt_length-1:]
         old_logps_per_sequence.append(per_token_logps.detach())
@@ -72,7 +72,7 @@ for epoch in range(num_epochs):
         #     per_token_losses = per_token_logps * -1 * (rewards[i] - average)
 
         with torch.no_grad():
-            ref_logits = ref_model(outputs).logits[:, :-1, :]
+            ref_logits = ref_model(outputs).logits[:, :-1, :].contiguous()
             ref_per_token_logps = get_per_token_logps(ref_logits, input_ids)
             ref_per_token_logps = ref_per_token_logps[:, prompt_length-1:]
         

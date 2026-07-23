@@ -89,15 +89,15 @@ def train(
 
             # Compute policy logps using fused Triton kernel
             forward_pass = model(outputs)
-            logits = forward_pass.logits[:, :-1, :]
-            input_ids = outputs[:, 1:]
+            logits = forward_pass.logits[:, :-1, :].contiguous()
+            input_ids = outputs[:, 1:].contiguous()
             
             per_token_logps = get_per_token_logps(logits, input_ids)
             per_token_logps = per_token_logps[:, prompt_length - 1:]
 
             # Compute reference model logps using fused Triton kernel
             with torch.no_grad():
-                ref_logits = ref_model(outputs).logits[:, :-1, :]
+                ref_logits = ref_model(outputs).logits[:, :-1, :].contiguous()
                 ref_per_token_logps = get_per_token_logps(ref_logits, input_ids)
                 ref_per_token_logps = ref_per_token_logps[:, prompt_length - 1:]
 
